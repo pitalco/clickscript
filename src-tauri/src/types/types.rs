@@ -22,7 +22,7 @@ pub struct Action {
 impl Convert for Arg {
     fn convert(&self) -> Result<String, Box<dyn std::error::Error>> {
         match self.arg_type.as_str() {
-            "string" => Ok(format!("{}", self.value)),
+            "string" => Ok(format!("\"{}\"", self.value)),
             "number" => {
                 // Attempt to parse the value as a number to validate it
                 self.value.parse::<f64>()
