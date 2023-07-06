@@ -26,10 +26,18 @@ mod tests {
                 arg_type: String::from("string"),
                 value: String::from(" world!"),
             },
+            Arg {
+                arg_type: String::from("number"),
+                value: String::from("57"),
+            },
+            Arg {
+                arg_type: String::from("boolean"),
+                value: String::from("true"),
+            }
         ];
 
         // Test the print function
         let result = print(args).unwrap();
-        assert_eq!(result, "console.log(\"Hello,\", \" world!\");\n");
+        assert_eq!(result, "console.log(\"Hello,\", \" world!\", 57, true);\n");
     }
 }
