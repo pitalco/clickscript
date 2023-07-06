@@ -3,7 +3,7 @@ use crate::types::types::{Arg, Convert};
 fn print(args: Vec<Arg>) -> Result<String, Box<dyn std::error::Error>> {
     let mut js_code = String::new();
     for arg in args {
-        js_code += &format!("console.log('{:?}');\n", arg.convert()?);
+        js_code += &format!("console.log({:?});\n", arg.convert()?);
     }
 
     Ok(js_code)
@@ -26,6 +26,7 @@ mod tests {
 
         // Test the print function
         let result = print(args).unwrap();
-        assert_eq!(result, "console.log('Hello, world!');\n");
+        println!("{}", result);
+        assert_eq!(result, "console.log(\"Hello, world!\");\n");
     }
 }
