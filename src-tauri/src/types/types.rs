@@ -4,11 +4,12 @@ pub trait Convert {
     fn convert(&self) -> Result<String, Box<dyn std::error::Error>>;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Arg {
     #[serde(rename = "type")]
     pub arg_type: String,
     pub value: String,
+    pub name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -29,6 +30,7 @@ impl Convert for Arg {
                     .map_err(|_| "Invalid number".into())
                     .map(|_| self.value.to_owned())
             },
+            "var" => Ok(format!("{}", self.value)),
             "boolean" => {
                 // Validate that the value is a boolean
                 match self.value.to_lowercase().as_str() {
@@ -38,15 +40,19 @@ impl Convert for Arg {
             },
             "list" => {
                 // Attempt to parse the value as a list to validate it
-                serde_json::from_str::<serde_json::Value>(&self.value)
-                    .map_err(|_| "Invalid list".into())
-                    .map(|_| self.value.to_owned())
+                let value: Result<serde_json::Value, _> = serde_json::from_str(&self.value);
+                match value {
+                    Ok(v) => Ok(serde_json::to_string_pretty(&v).unwrap_or_else(|_| self.value.to_owned())),
+                    Err(_) => Err("Invalid list".into())
+                }
             },
             "object" => {
                 // Attempt to parse the value as JSON to validate it
-                serde_json::from_str::<serde_json::Value>(&self.value)
-                    .map_err(|_| "Invalid JSON".into())
-                    .map(|_| self.value.to_owned())
+                let value: Result<serde_json::Value, _> = serde_json::from_str(&self.value);
+                match value {
+                    Ok(v) => Ok(serde_json::to_string_pretty(&v).unwrap_or_else(|_| self.value.to_owned())),
+                    Err(_) => Err("Invalid JSON".into())
+                }
             },
             _ => Err("Unsupported type".into()),
         }
