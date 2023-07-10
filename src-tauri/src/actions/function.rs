@@ -1,24 +1,18 @@
-use crate::types::types::{Arg, Action, Convert};
+use crate::types::types::{Arg, Action};
+use crate::actions::handler::handler;
 
-fn create_function(func_name: Arg, actions: Vec<Action>) -> Result<String, Box<dyn std::error::Error>> {
-    let function_name = match func_name.name {
-        Some(name) => name,
-        None => panic!("Function name is required."),
-    };
+pub fn create_function(args: Vec<Arg>, children: Option<Vec<Action>>) -> Result<String, Box<dyn std::error::Error>> {
+    let func_name = args.iter().filter(|x| x.name == Some("function_name".to_string())).next();
 
     let mut function_body = String::new();
-    for action in actions {
-        for arg in action.args {
-            function_body.push_str(&arg.convert().unwrap());
-            function_body.push_str(";\n");
-        }
-
-        if !action.children.is_empty() {
-            function_body.push_str(&create_function(func_name.clone(), action.children)?);
-        }
+    for action in children.unwrap() {
+        let func = handler(&action).ok().unwrap();
+        let code = func(action.args, action.children);
+        function_body.push_str(&code.unwrap());
+        function_body.push_str("\n");
     }
 
-    let js_code = format!("function {}() {{\n{}}}\n", function_name, function_body);
+    let js_code = format!("function {}() {{\n{}}}\n", func_name.clone().unwrap().value, function_body);
 
     Ok(js_code)
 }
@@ -47,7 +41,7 @@ mod tests {
         let func_name = Arg {
             arg_type: String::from("string"),
             value: String::from("myFunction"),
-            name: Some(String::from("func_name")),
+            name: Some(String::from("function_name")),
         };
         
         // Create a vector of Action
@@ -56,12 +50,12 @@ mod tests {
                 index: 1,
                 action: String::from("create_variable"),
                 args: args.clone(),
-                children: vec![],
+                children: Some(vec![]),
             }
         ];
         
         // Test the create_function function
-        let result = create_function(func_name, actions).unwrap();
-        assert_eq!(result, "function myFunction() {\nlet name = \"Hello!\";\n}\n");
+        let result = create_function(vec!(func_name), Some(actions)).unwrap();
+        assert_eq!(result, "function myFunction() {\nlet name = \"Hello!\";\n\n}\n");
     }
 }

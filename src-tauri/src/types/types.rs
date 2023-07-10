@@ -17,7 +17,7 @@ pub struct Action {
     pub index: i32,
     pub action: String,
     pub args: Vec<Arg>,
-    pub children: Vec<Action>,
+    pub children: Option<Vec<Action>>,
 }
 
 impl Convert for Arg {

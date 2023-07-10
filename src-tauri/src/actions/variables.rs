@@ -1,4 +1,4 @@
-use crate::types::types::{Arg, Convert};
+use crate::types::types::{Arg, Convert, Action};
 
 /// This function transpiles a vector of Args into a string that is Javascript code
 /// for setting a variable to certain values.
@@ -26,7 +26,7 @@ use crate::types::types::{Arg, Convert};
 /// assert_eq!(result, "let greeting = [\"Hello,\", \" world!\"];\n");
 /// ```
 ///
-fn variable(args: Vec<Arg>) -> Result<String, Box<dyn std::error::Error>> {
+pub fn variable(args: Vec<Arg>, _children: Option<Vec<Action>>) -> Result<String, Box<dyn std::error::Error>> {
     let variable_name = args.iter().filter(|x| x.name == Some("var_name".to_string())).next();
     let var = match variable_name {
         Some(var_ref) => var_ref.clone(),
@@ -66,7 +66,7 @@ mod tests {
         ];
 
         // Test the variable function
-        let result = variable(args).unwrap();
+        let result = variable(args, None).unwrap();
         println!("{:?}", result.as_str());
         assert_eq!(result, "let name = \"Hello!\";\n");
     }

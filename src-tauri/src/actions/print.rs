@@ -1,4 +1,4 @@
-use crate::types::types::{Arg, Convert};
+use crate::types::types::{Arg, Convert, Action};
 
 /// This function transpiles a vector of Args into a string that is Javascript code
 /// for printing items to the console.
@@ -23,7 +23,7 @@ use crate::types::types::{Arg, Convert};
 /// assert_eq!(result, "console.log(\"Hello,\", \" world!\");\n");
 /// ```
 ///
-fn print(args: Vec<Arg>) -> Result<String, Box<dyn std::error::Error>> {
+pub fn print(args: Vec<Arg>, _children: Option<Vec<Action>>) -> Result<String, Box<dyn std::error::Error>> {
     let values: Result<Vec<_>, _> = args.into_iter().map(|arg| arg.convert()).collect();
     let values = values?;
 
@@ -64,7 +64,7 @@ mod tests {
         ];
 
         // Test the print function
-        let result = print(args).unwrap();
+        let result = print(args, None).unwrap();
         assert_eq!(result, "console.log(\"Hello,\", \" world!\", 57, true);\n");
     }
 }
