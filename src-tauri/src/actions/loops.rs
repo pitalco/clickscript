@@ -47,13 +47,19 @@ mod tests {
             Action {
                 index: 1,
                 action: String::from("print"),
-                args: args.clone(),
+                args: vec![
+                    Arg {
+                        arg_type: String::from("var"),
+                        value: String::from("item"),
+                        name: Some(String::from("var_name")),
+                    }
+                ],
                 children: Some(vec![]),
             }
         ];
         
         // Test the create_for_loop function
         let result = for_loop(args, Some(actions)).unwrap();
-        assert_eq!(result, "for (let i of array) {\nconsole.log(i);\n}\n");
+        assert_eq!(result, "for (let item of items) {\nconsole.log(item);\n\n\n}\n");
     }
 }
