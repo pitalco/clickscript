@@ -1,3 +1,5 @@
+use core::fmt;
+
 use serde::{Deserialize, Serialize};
 
 pub trait Convert {
@@ -18,6 +20,54 @@ pub struct Action {
     pub action: String,
     pub args: Vec<Arg>,
     pub children: Option<Vec<Action>>,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Script {
+    pub script: Vec<Action>,
+}
+
+
+impl fmt::Display for Arg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name_string = self.name.as_ref()
+            .map(|name| format!("'{}'", name))
+            .unwrap_or_else(|| "None".to_string());
+
+        write!(f, "Arg {{ type: '{}', value: '{}', name: {} }}",
+            self.arg_type, self.value, name_string)
+    }
+}
+
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let args_string = self.args.iter()
+            .map(|arg| arg.to_string())  // Make sure `Arg` also implements `Display`
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let children_string = self.children.as_ref()
+            .map(|children| children.iter()
+                .map(|child| child.to_string())
+                .collect::<Vec<_>>()
+                .join(", "))
+            .unwrap_or_else(|| "None".to_string());
+
+        write!(f, "Action {{ index: {}, action: '{}', args: [{}], children: [{}] }}", 
+            self.index, self.action, args_string, children_string)
+    }
+}
+
+impl fmt::Display for Script {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let script_string = self.script.iter()
+            .map(|action| action.to_string())  // Make sure `Action` also implements `Display`
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        write!(f, "Script: [{}]", script_string)
+    }
 }
 
 impl Convert for Arg {

@@ -5,9 +5,9 @@ mod actions;
 mod runner;
 mod types;
 
-use serde_json::{Value};
-use log::{trace};
+use log::trace;
 use env_logger;
+use crate::types::types::Script;
 
 #[tauri::command]
 fn compile(path: &str) -> String {
@@ -17,13 +17,13 @@ fn compile(path: &str) -> String {
 
     let script = {
         // Load the first file into a string.
-        let text = std::fs::read_to_string(&input_path).unwrap();
+        let script: String = std::fs::read_to_string(&input_path).unwrap();
 
         // Parse the string into a dynamically-typed JSON structure.
-        serde_json::from_str::<Value>(&text).unwrap()
+        serde_json::from_str::<Script>(&script).unwrap()
     };
 
-    trace!("{}", script);
+    trace!("{:?}", script);
 
     return script.to_string();
 }
