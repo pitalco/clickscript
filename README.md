@@ -6,5 +6,5 @@ First came Javascript, then NodeJS and then Typescript. Next comes Clickscript. 
 ```bash
 sudo apt-get update
 sudo apt-get upgrade
-sudo apt-get install libgtk-3-dev libsoup2.4-dev libjavascriptcoregtk-4.0-dev libwebkit2gtk-4.0-dev
+sudo apt-get install libwebkit2gtk-4.0-dev libgtk-3-dev libpango1.0-dev libharfbuzz-dev libatk1.0-dev libsoup2.4-dev libjavascriptcoregtk-4.0-dev
 ```
