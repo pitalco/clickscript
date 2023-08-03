@@ -12,7 +12,7 @@ pub fn create_function(args: Vec<Arg>, children: Option<Vec<Action>>) -> Result<
         function_body.push_str("\n");
     }
 
-    let js_code = format!("function {}() {{\n{}}}\n", func_name.clone().unwrap().value, function_body);
+    let js_code = format!("const {} = () => {{\n{}}}\n", func_name.clone().unwrap().value, function_body);
 
     Ok(js_code)
 }
