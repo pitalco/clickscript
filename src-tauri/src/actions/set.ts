@@ -7,9 +7,9 @@ export interface Set {
 export const set = (args: Set) => {
     switch (args.type) {
         case "constant":
-            global[args.name] = args.value;
+            (global as any)[args.name] = args.value;
         case "variable":
-            global[args.name] = args.value;
+            (global as any)[args.name] = args.value;
         default:
             throw new Error("Invalid type");
     }

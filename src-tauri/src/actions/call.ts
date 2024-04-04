@@ -35,7 +35,7 @@ export const call = (args: Call) => {
     }
 };
 
-const buildGetUrl = (baseUrl: string, queryParams: object) => {
+const buildGetUrl = (baseUrl: string, queryParams: { [key: string]: any }) => {
     // Convert the query parameters object into a query string
     const queryString = Object.keys(queryParams)
         .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(queryParams[key]))

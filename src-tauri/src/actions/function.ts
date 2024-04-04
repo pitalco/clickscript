@@ -8,14 +8,14 @@ export interface func {
 
 export const func = (args: func) => {
     if (args.async) {
-        global[args.name] = async function() {
+        (global as any)[args.name] = async function() {
             for (let i = 0; i < args.children.length; i++) {
                 await args.children[i].func(args.children[i].args);
             }
         }
     }
     return function(args: func) {
-        global[args.name] = function() {
+        (global as any)[args.name] = function() {
             for (let i = 0; i < args.children.length; i++) {
                 args.children[i].func(args.children[i].args);
             }
