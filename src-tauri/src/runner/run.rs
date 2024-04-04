@@ -1,32 +1,89 @@
-use v8::{Context, ContextScope, HandleScope, Isolate, Script, V8, new_default_platform};
-use std::error::Error;
+use deno_core::{error::AnyError, JsRuntime};
+use serde_json::Value;
+use crate::types::types::Script;
 
-pub fn run(js_code: &str) -> Result<String, Box<dyn Error>> {
-    let platform = new_default_platform(0, false).make_shared();
-    V8::initialize_platform(platform);
-    V8::initialize();
+pub fn compile(script: &Script) -> Result<String, AnyError> {
+    let mut code = String::new();
 
-    let isolate = &mut Isolate::new(Default::default());
+    // Iterate over the action_scripts and add them as imports
+    for _action_script in &script.action_scripts {
+        code.push_str(&format!("import * as actions from '{}';\n", String::from("../action/index.js").as_str()));
+    }
 
-    let scope = &mut HandleScope::new(isolate);
-    let context = Context::new(scope);
-    let scope = &mut ContextScope::new(scope, context);
+    // Iterate over the script actions and generate the corresponding code
+    for action in &script.script {
+        let action_name = &action.action;
+        let args = &action.args;
 
-    let code = v8::String::new(scope, js_code).expect("Invalid JS code");
-    let script = Script::compile(scope, code, None).expect("Failed to compile JS code");
-    let result = script.run(scope).expect("Failed to run JS code");
-    let result = result.to_string(scope).expect("Failed to convert result to string");
-    Ok(result.to_rust_string_lossy(scope))
+        // Generate the code for the action
+        let action_code = generate_action_code(action_name, args);
+
+        code.push_str(&action_code);
+        code.push_str("\n\n");
+    }
+
+    Ok(code)
+}
+
+fn generate_action_code(action_name: &str, args: &Value) -> String {
+    let args_str = serde_json::to_string(args).unwrap();
+    format!("actions.{}({});", action_name, args_str)
+}
+
+pub fn run(script: &Script) {
+    let code = compile(script).unwrap();
+    let mut runtime = JsRuntime::new(Default::default());
+    let result = runtime.execute_script("<anon>", code);
+    if let Err(err) = result {
+        eprintln!("Error: {}", err);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::types::{Action, Script};
+    use serde_json::json;
+
+    #[test]
+    fn test_compile() {
+        let script = Script {
+            action_scripts: vec!["./src-tauri/src/actions/index.ts".to_string()],
+            script: vec![
+                Action {
+                    index: 1,
+                    action: "log".to_string(),
+                    args: json!({
+                        "message": "Hello from Clickscript!",
+                        "level": "info"
+                    }),
+                },
+            ],
+        };
+
+        let compiled_code = compile(&script).unwrap();
+
+        let expected_code = String::from("import * as actions from './src-tauri/src/actions/index.ts';\n\nactions.log({\"message\":\"Hello from Clickscript!\",\"level\":\"info\"});");
+
+        assert_eq!(compiled_code.trim(), expected_code.trim());
+    }
 
     #[test]
     fn test_run() {
-        let js_code = "let name = \"Hello!\"; name";
-        let result = run(js_code).unwrap();
-        assert_eq!(result, "Hello!");
+        let script = Script {
+            action_scripts: vec!["./src-tauri/src/actions/index.ts".to_string()],
+            script: vec![
+                Action {
+                    index: 1,
+                    action: "log".to_string(),
+                    args: json!({
+                        "message": "Hello from Clickscript!",
+                        "level": "info"
+                    }),
+                },
+            ],
+        };
+
+        run(&script);
     }
 }

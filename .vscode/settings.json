@@ -5,6 +5,10 @@
         "./src-tauri/Cargo.toml",
         "./src-tauri/Cargo.toml",
         "./src-tauri/Cargo.toml",
-        "./src-tauri/Cargo.toml"
-    ]
+        "./src-tauri/Cargo.toml",
+        ".\\src-tauri\\Cargo.toml",
+        ".\\src-tauri\\Cargo.toml",
+        ".\\src-tauri\\Cargo.toml"
+    ],
+    "deno.enable": false
 }
