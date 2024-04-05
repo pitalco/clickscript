@@ -2,6 +2,7 @@
 	"name": "clickscript",
 	"version": "0.0.1",
 	"private": true,
+	"type": "module",
 	"workspaces": [
 		"packages/*"
 	],
@@ -29,7 +30,6 @@
 		"vite": "^4.3.0",
 		"vitest": "^0.25.3"
 	},
-	"type": "module",
 	"dependencies": {
 		"autoprefixer": "^10.4.14",
 		"preline": "^1.9.0",

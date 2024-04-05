@@ -7,19 +7,20 @@ pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
 
     // Iterate over the action_scripts and add them as imports
     for action_script in &script.action_scripts {
-        let script_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packages/actions/index.js");
+        let script_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(action_script);
+        let path = PathBuf::from(script_path);
         // Check if the action script exists
-        if let Ok(metadata) = fs::metadata(&script_path) {
+        if let Ok(metadata) = fs::metadata(&path) {
             if metadata.is_file() {
                 // If it does, add it as an import
-                code.push_str(&format!("import * as actions from '{:#?}';\n", script_path.to_str()));
+                code.push_str(&format!("import * as actions from {:#?};", action_script));
             } else {
                 // Handle the case when the action script is not a file
-                return Err(format!("Action script '{:#?}' is not a file", script_path.to_str()).into());
+                return Err(format!("Action script '{:#?}' is not a file", action_script).into());
             }
         } else {
             // Handle the case when the action script does not exist
-            return Err(format!("Action script '{:#?}' does not exist", script_path.to_str()).into());
+            return Err(format!("Action script '{:#?}' does not exist", action_script).into());
         }
     }
 
@@ -53,31 +54,45 @@ pub fn run(script: &Script) {
     let context = v8::Context::new(handle_scope);
     let scope = &mut v8::ContextScope::new(handle_scope, context);
 
-    // Define the callback function
-    let callback = |scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue| {
+    let global = context.global(scope);
+
+    // Define the log callback function
+    let log_callback = |scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue| {
         for i in 0..args.length() {
             let arg = args.get(i);
             let str = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
             println!("{}", str);
         }
     };
-
     // Create a new function in the V8 context
-    let log_function = v8::Function::new(scope, callback).unwrap();
+    let log_function = v8::Function::new(scope, log_callback).unwrap();
+    let log_key = v8::String::new(scope, "log").unwrap();
 
-    let global = context.global(scope);
+    // Define the error callback function
+    let error_callback = |scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue| {
+        for i in 0..args.length() {
+            let arg = args.get(i);
+            let str = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
+            println!("{}", str);
+        }
+    };
+    // Create a new function in the V8 context
+    let error_function = v8::Function::new(scope, error_callback).unwrap();
 
     // Set the console object in global. This is a way for the JavaScript code to call into Rust logging, including panic errors.
     let console = v8::Object::new(scope);
-    let key = v8::String::new(scope, "log").unwrap();
-    console.set(scope, key.into(), log_function.into());
+    console.set(scope, log_key.into(), log_function.into());
     let console_key = v8::String::new(scope, "console").unwrap();
     global.set(scope, console_key.into(), console.into()).unwrap();
 
-    // Compile Clickscript into JavaScript
+    // Set error function in global
+    let error_key = v8::String::new(scope, "error").unwrap();
+    global.set(scope, error_key.into(), error_function.into()).unwrap();
+
+    // Compile module
     let code = compile(script);
     let source_code = v8::String::new(scope, code.unwrap().as_str()).unwrap();
-    let resource_name = v8::String::new(scope, "<module>").unwrap().into();
+    let resource_name = v8::String::new(scope, "clickscript_module").unwrap().into();
     let source_map_url = v8::String::new(scope, "").unwrap().into();
 
     let script_origin = v8::ScriptOrigin::new(
@@ -95,6 +110,8 @@ pub fn run(script: &Script) {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, io::Write};
+
     use super::*;
     use crate::types::types::{Action, Script};
     use serde_json::json;
@@ -102,7 +119,7 @@ mod tests {
     #[test]
     fn test_compile() {
         let script = Script {
-            action_scripts: vec!["../packages/actions/dist/index.js".to_string()],
+            action_scripts: vec!["./packages/actions/dist/index.js".to_string()],
             script: vec![
                 Action {
                     index: 1,
@@ -117,9 +134,13 @@ mod tests {
             ],
         };
 
-        let compiled_code = compile(&script).unwrap();
+        let compiled_code = compile(&script).unwrap(); 
 
-        let expected_code = String::from("import * as actions from '../action/index.js';\n\n\nactions.log({\"level\":\"info\",\"message\":[\"Hello from Clickscript!\"]});");
+        let file = File::create("test.js");
+        let result = file.unwrap().write_all(compiled_code.as_bytes());
+        result.unwrap();
+
+        let expected_code = String::from("import * as actions from \"./packages/actions/dist/index.js\";\n\nactions.log({\"level\":\"info\",\"message\":[\"Hello from Clickscript!\"]});");
 
         assert_eq!(compiled_code.trim(), expected_code.trim());
     }
@@ -127,7 +148,7 @@ mod tests {
     #[test]
     fn test_run() {
         let script = Script {
-            action_scripts: vec!["../packages/actions/dist/index.js".to_string()],
+            action_scripts: vec!["./packages/actions/dist/index.js".to_string()],
             script: vec![
                 Action {
                     index: 1,
