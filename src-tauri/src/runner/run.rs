@@ -1,8 +1,8 @@
-use deno_core::{error::AnyError, JsRuntime};
-use serde_json::Value;
+use std::error::Error;
+use rusty_v8 as v8;
 use crate::types::types::Script;
 
-pub fn compile(script: &Script) -> Result<String, AnyError> {
+pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
     let mut code = String::new();
 
     // Iterate over the action_scripts and add them as imports
@@ -16,27 +16,64 @@ pub fn compile(script: &Script) -> Result<String, AnyError> {
         let args = &action.args;
 
         // Generate the code for the action
-        let action_code = generate_action_code(action_name, args);
+        let args_str = serde_json::to_string(args).unwrap();
+        let action_code = format!("actions.{}({});", action_name, args_str);
 
-        code.push_str(&action_code);
         code.push_str("\n\n");
+        code.push_str(&action_code);
     }
 
     Ok(code)
 }
 
-fn generate_action_code(action_name: &str, args: &Value) -> String {
-    let args_str = serde_json::to_string(args).unwrap();
-    format!("actions.{}({});", action_name, args_str)
-}
-
-pub fn run(script: &Script) {
+pub fn run(script: &Script) -> Result<(), Box<dyn Error>> {
+    // Compile clickscript script into Javascript
+    // NOTE: add support for TypeScript
     let code = compile(script).unwrap();
-    let mut runtime = JsRuntime::new(Default::default());
-    let result = runtime.execute_script("<anon>", code);
-    if let Err(err) = result {
-        eprintln!("Error: {}", err);
+    // Initialize V8
+    let platform = v8::new_default_platform(0, false);
+    v8::V8::initialize_platform(platform.into());
+    v8::V8::initialize();
+
+    // Outer scope for isolate
+    let isolate = &mut v8::Isolate::new(v8::CreateParams::default());
+    let global_handle_scope = &mut v8::HandleScope::new(isolate);
+
+    // Create a new context and enter it
+    let context = v8::Context::new(global_handle_scope);
+
+    {
+        let scope = &mut v8::ContextScope::new(global_handle_scope, context);
+
+        let source_code = v8::String::new(scope, &code).unwrap();
+        
+        let resource_name = v8::String::new(scope, "<module>").unwrap().into();
+
+        let source_map_url = v8::String::new(scope, "").unwrap().into();
+
+        // Set is_module to true in ScriptOrigin
+        let script_origin = v8::ScriptOrigin::new(
+            scope.as_mut(),
+            resource_name,
+            0,  // resource_line_offset
+            0,  // resource_column_offset
+            false,  // resource_is_shared_cross_origin
+            -1,  // script_id (let V8 generate an ID)
+            source_map_url,  // source_map_url
+            false,  // resource_is_opaque
+            false,  // is_wasm
+            true  // is_module
+        );
+        let source = v8::script_compiler::Source::new(source_code, Some(&script_origin));
+        let module = v8::script_compiler::compile_module(scope, source).unwrap();
+
+        module
+        .instantiate_module(scope, |_, _, _, m| Some(m))
+        .ok_or("failed to instantiate module")?;
+        module.evaluate(scope).ok_or("failed to evaluate module")?;
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -48,13 +85,15 @@ mod tests {
     #[test]
     fn test_compile() {
         let script = Script {
-            action_scripts: vec!["./src-tauri/src/actions/index.ts".to_string()],
+            action_scripts: vec!["./src-tauri/src/actions/dist/index.js".to_string()],
             script: vec![
                 Action {
                     index: 1,
                     action: "log".to_string(),
                     args: json!({
-                        "message": "Hello from Clickscript!",
+                        "message": [
+                            "Hello from Clickscript!"
+                        ],
                         "level": "info"
                     }),
                 },
@@ -63,7 +102,7 @@ mod tests {
 
         let compiled_code = compile(&script).unwrap();
 
-        let expected_code = String::from("import * as actions from './src-tauri/src/actions/index.ts';\n\nactions.log({\"message\":\"Hello from Clickscript!\",\"level\":\"info\"});");
+        let expected_code = String::from("import * as actions from '../action/index.js';\n\n\nactions.log({\"level\":\"info\",\"message\":[\"Hello from Clickscript!\"]});");
 
         assert_eq!(compiled_code.trim(), expected_code.trim());
     }
@@ -71,19 +110,25 @@ mod tests {
     #[test]
     fn test_run() {
         let script = Script {
-            action_scripts: vec!["./src-tauri/src/actions/index.ts".to_string()],
+            action_scripts: vec!["./src-tauri/src/actions/dist/index.js".to_string()],
             script: vec![
                 Action {
                     index: 1,
                     action: "log".to_string(),
                     args: json!({
-                        "message": "Hello from Clickscript!",
+                        "message": [
+                            "Hello from Clickscript!"
+                        ],
                         "level": "info"
                     }),
                 },
             ],
         };
 
-        run(&script);
+        let result = run(&script);
+
+        if result.is_err() {
+            eprintln!("Error running script: {:?}", result);
+        }
     }
 }
