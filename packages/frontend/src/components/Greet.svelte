@@ -1,11 +1,11 @@
 <script>
   import { invoke } from '@tauri-apps/api/tauri'
 
-  let path = '/root/clickscript/example.json'
+  let path = 'C:\Users\schne\documents\clickscript\example.click.json'
   let script = ''
 
   async function greet() {
-    script = await invoke('compile', { path })
+    script = await invoke('compile_run', { path })
     console.log(script);
   }
 </script>
