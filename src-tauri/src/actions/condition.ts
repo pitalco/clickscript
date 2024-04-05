@@ -1,4 +1,4 @@
-import { Run } from "./types.ts";
+import { Run } from "./types.js";
 
 export interface Condition {
     statement: Run;
