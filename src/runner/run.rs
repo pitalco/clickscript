@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{error::Error, fs, path::PathBuf};
 use log::{error, info};
 use rusty_v8 as v8;
@@ -6,9 +7,29 @@ use crate::types::types::Script;
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
 
+pub struct ClicksciptLog {
+    pub message: String,
+    pub level: String,
+}
+
+impl fmt::Display for ClicksciptLog {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}] {}", self.level, self.message)
+    }
+}
+
+impl ClicksciptLog {
+    pub fn new(message: String, level: String) -> ClicksciptLog {
+        ClicksciptLog {
+            message,
+            level,
+        }
+    }
+}
+
 // We set a static global variable to store the logs from v8. We use a Mutex to ensure that the logs are thread-safe and an Arc to share the logs across threads.
 // We also use the once_cell crate to lazily initialize the global variable to save CPU time if we never need it.
-static GLOBAL_LOGS: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| {
+static GLOBAL_LOGS: Lazy<Arc<Mutex<Vec<ClicksciptLog>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(Vec::new()))
 });
 
@@ -17,14 +38,16 @@ fn log_callback(scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments
     
     let logs = GLOBAL_LOGS.clone();
     let mut logs = logs.lock().unwrap();
-    logs.push(message);
+    logs.push(ClicksciptLog::new(message, "info".to_string()));
 }
 
 fn error_callback(scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue) {
     for i in 0..args.length() {
         let arg = args.get(i);
         let info = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
-        error!("{}", info);
+        let logs = GLOBAL_LOGS.clone();
+        let mut logs = logs.lock().unwrap();
+        logs.push(ClicksciptLog::new(info, "error".to_string()));
     }
     return;
 }
@@ -125,7 +148,11 @@ pub fn run(script: &Script) {
     module.evaluate(scope).unwrap();
     let logs = GLOBAL_LOGS.lock().unwrap();
     for log in logs.iter() {
-        info!("{}", log);
+        match log.level.as_str() {
+            "info" => info!("{}", log.message),
+            "error" => error!("{}", log.message),
+            _ => info!("{}", log.message),
+        }
     }
 }
 
