@@ -6,6 +6,8 @@ use crate::types::types::Script;
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
 
+// We set a static global variable to store the logs from v8. We use a Mutex to ensure that the logs are thread-safe and an Arc to share the logs across threads.
+// We also use the once_cell crate to lazily initialize the global variable to save CPU time if we never need it.
 static GLOBAL_LOGS: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(Vec::new()))
 });
@@ -16,6 +18,15 @@ fn log_callback(scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments
     let logs = GLOBAL_LOGS.clone();
     let mut logs = logs.lock().unwrap();
     logs.push(message);
+}
+
+fn error_callback(scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue) {
+    for i in 0..args.length() {
+        let arg = args.get(i);
+        let info = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
+        error!("{}", info);
+    }
+    return;
 }
 
 pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
@@ -81,15 +92,6 @@ pub fn run(script: &Script) {
     let log_function = v8::Function::new(scope, log_callback).unwrap();
     let log_key = v8::String::new(scope, "log").unwrap();
 
-    // Define the error callback function
-    let error_callback = |scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue| {
-        for i in 0..args.length() {
-            let arg = args.get(i);
-            let info = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
-            error!("{}", info);
-            return;
-        }
-    };
     // Create a new function in the V8 context
     let error_function = v8::Function::new(scope, error_callback).unwrap();
     let error_key = v8::String::new(scope, "error").unwrap();
