@@ -1,6 +1,22 @@
 use std::{error::Error, fs, path::PathBuf};
+use log::{error, info};
 use rusty_v8 as v8;
+use serde_json::to_string;
 use crate::types::types::Script;
+use std::sync::{Arc, Mutex};
+use once_cell::sync::Lazy;
+
+static GLOBAL_LOGS: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(Vec::new()))
+});
+
+fn log_callback(scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue) {
+    let message = args.get(0).to_string(scope).unwrap().to_rust_string_lossy(scope);
+    
+    let logs = GLOBAL_LOGS.clone();
+    let mut logs = logs.lock().unwrap();
+    logs.push(message);
+}
 
 pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
     let mut code = String::new();
@@ -29,9 +45,12 @@ pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
         let action_name = &action.action;
         let args = &action.args;
 
+        // Serialize `args` to a JSON string
+        let args_json = to_string(args).unwrap_or_else(|_| "{}".to_string());
+
         // Generate the code for the action
-        let args_str = serde_json::to_string(args).unwrap();
-        let action_code = format!("actions.{}({});", action_name, args_str);
+        // Directly inject the JSON string as part of the JavaScript code
+        let action_code = format!("actions.{}({});", action_name, args_json);
 
         code.push_str("\n\n");
         code.push_str(&action_code);
@@ -41,6 +60,8 @@ pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
 }
 
 pub fn run(script: &Script) {
+    env_logger::init();
+
     // Initialize V8
     let platform = v8::new_default_platform(0, false);
     v8::V8::initialize_platform(platform.into());
@@ -56,14 +77,6 @@ pub fn run(script: &Script) {
 
     let global = context.global(scope);
 
-    // Define the log callback function
-    let log_callback = |scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue| {
-        for i in 0..args.length() {
-            let arg = args.get(i);
-            let str = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
-            println!("{}", str);
-        }
-    };
     // Create a new function in the V8 context
     let log_function = v8::Function::new(scope, log_callback).unwrap();
     let log_key = v8::String::new(scope, "log").unwrap();
@@ -72,26 +85,28 @@ pub fn run(script: &Script) {
     let error_callback = |scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, _: v8::ReturnValue| {
         for i in 0..args.length() {
             let arg = args.get(i);
-            let str = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
-            println!("{}", str);
+            let info = arg.to_string(scope).unwrap().to_rust_string_lossy(scope);
+            error!("{}", info);
+            return;
         }
     };
     // Create a new function in the V8 context
     let error_function = v8::Function::new(scope, error_callback).unwrap();
+    let error_key = v8::String::new(scope, "error").unwrap();
 
     // Set the console object in global. This is a way for the JavaScript code to call into Rust logging, including panic errors.
     let console = v8::Object::new(scope);
-    console.set(scope, log_key.into(), log_function.into());
+    // Set console.log
+    console.set(scope, log_key.into(), log_function.into()).unwrap();
+    // Set console.error
+    console.set(scope, error_key.into(), error_function.into()).unwrap();
     let console_key = v8::String::new(scope, "console").unwrap();
     global.set(scope, console_key.into(), console.into()).unwrap();
 
-    // Set error function in global
-    let error_key = v8::String::new(scope, "error").unwrap();
-    global.set(scope, error_key.into(), error_function.into()).unwrap();
-
     // Compile module
-    let code = compile(script);
-    let source_code = v8::String::new(scope, code.unwrap().as_str()).unwrap();
+    let raw_code = compile(script);
+    let code = format!("try {{console.log({:?});\n{:?}\n}} catch (error) {{\n\tconsole.error(error);\n}}", "Hello from JS", raw_code.unwrap());
+    let source_code = v8::String::new(scope, code.as_str()).unwrap();
     let resource_name = v8::String::new(scope, "clickscript_module").unwrap().into();
     let source_map_url = v8::String::new(scope, "").unwrap().into();
 
@@ -106,6 +121,10 @@ pub fn run(script: &Script) {
     // Instantiate the module and evaluate it
     module.instantiate_module(scope, |_, _, _, m| Some(m)).unwrap();
     module.evaluate(scope).unwrap();
+    let logs = GLOBAL_LOGS.lock().unwrap();
+    for log in logs.iter() {
+        info!("{}", log);
+    }
 }
 
 #[cfg(test)]

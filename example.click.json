@@ -1,13 +1,15 @@
 {
   "action_scripts": [
-    "./src-tauri/src/actions/index.ts"
+    "./packages/actions/dist/index.js"
   ],
   "script": [
     {
       "index": 1,
       "action": "log",
       "args": {
-        "message": "Hello from Clickscript!",
+        "message": [
+          "Hello from Clickscript!"
+        ],
         "level": "info"
       }
     }
