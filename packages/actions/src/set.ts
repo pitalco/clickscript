@@ -11,7 +11,7 @@ export interface Set {
  * Sets a variable or constant globally.
  * @param args Arguments for the action as a Set type.
  */
-export const set = (args: Set) => {
+export const set = (args: Set): void => {
     switch (args.type) {
         case "constant":
             (global as any)[args.name] = args.value;

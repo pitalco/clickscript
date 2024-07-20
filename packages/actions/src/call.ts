@@ -12,7 +12,7 @@ export interface Call {
  * Calls an API using fetch.
  * @param args Arguments for the action as a Call type.
  */
-export const call = (args: Call) => {
+export const call = (args: Call): Promise<Response> => {
     switch (args.type) {
         case "GET":
             return fetch(buildGetUrl(args.url, args.data), {

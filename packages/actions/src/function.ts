@@ -13,7 +13,7 @@ export interface func {
  * Sets a function in global to be run another time.
  * @param args Arguments for the action as a func type.
  */
-export const func = (args: func) => {
+export const func = (args: func): (args: func) => void => {
     if (args.async) {
         (global as any)[args.name] = async function() {
             for (let i = 0; i < args.children.length; i++) {

@@ -10,7 +10,7 @@ export interface Log {
  * Logs to the console.
  * @param args Arguments for the action as a Log type.
  */
-export const log = (args: Log) => {
+export const log = (args: Log): void => {
     switch (args.level) {
         case "info":
             console.log(...args.message);

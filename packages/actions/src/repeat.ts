@@ -11,7 +11,7 @@ export interface Repeat {
  * Loop through Runs. We use the children length to determine the loop count.
  * @param args Arguments for the action as a Repeat type.
  */
-export const repeat = (args: Repeat) => {
+export const repeat = (args: Repeat): void => {
     for (let i = 0; i < args.children.length; i++) {
         args.children[i].func(args.children[i].args);
     }

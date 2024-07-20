@@ -9,6 +9,6 @@ export interface Kill {
  * Panic and throw an error.
  * @param args Arguments for the action as a Kill type.
  */
-export const kill = (args: Kill) => {
+export const kill = (args: Kill): void => {
     throw new Error(args.message);
 };

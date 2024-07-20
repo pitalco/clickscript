@@ -15,7 +15,7 @@ export interface Text {
  * Perform various text operations on a text.
  * @param args Arguments for the action as a Text type.
  */
-export const text = (args: Text) => {
+export const text = (args: Text): string | string[] => {
     switch (args.operation) {
         case "concat":
             return args.value;
