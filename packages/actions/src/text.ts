@@ -1,3 +1,6 @@
+/**
+ * Text argument type for text action.
+ */
 export interface Text {
     operation: "concat" | "split" | "replace" | "remove" | "insert" | "substring";
     value: string;
@@ -8,6 +11,10 @@ export interface Text {
     endIndex?: number;
 }
 
+/**
+ * Perform various text operations on a text.
+ * @param args Arguments for the action as a Text type.
+ */
 export const text = (args: Text) => {
     switch (args.operation) {
         case "concat":

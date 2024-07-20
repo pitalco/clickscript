@@ -1,28 +1,5 @@
 {
-  "name": "@username/my-package",
-  "version": "1.0.0",
-  "exports": {
-    ".": "./src/main.js",
-    "./utils": "./src/utils.js",
-    "./components": "./src/components.js"
-  },
-  "files": [
-    "src/**/*.js",
-    "README.md",
-    "LICENSE"
-  ],
-  "publish": {
-    "include": [
-      "src",
-      "README.md",
-      "LICENSE"
-    ],
-    "exclude": [
-      "**/*.test.js",
-      "**/*.spec.js"
-    ]
-  },
-  "dependencies": {
-    "@std/assert": "^0.2.0"
-  }
+  "name": "@clickscript/actions",
+  "version": "0.0.1",
+  "exports": "./src/index.ts"
 }

@@ -1,8 +1,15 @@
+/**
+ * Log argument type for log action.
+ */
 export interface Log {
     message: string[];
     level: "info" | "warn" | "error";
 };
 
+/**
+ * Logs to the console.
+ * @param args Arguments for the action as a Log type.
+ */
 export const log = (args: Log) => {
     switch (args.level) {
         case "info":
