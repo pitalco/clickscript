@@ -1,12 +1,12 @@
 {
-  "name": "actions",
+  "name": "@clickscript/actions",
   "version": "0.0.1",
-  "description": "",
+  "description": "ATypescript actions for the Clickscript visual programming language.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Pital & Co",
   "license": "ISC",
   "dependencies": {
     "typescript": "^5.4.3"

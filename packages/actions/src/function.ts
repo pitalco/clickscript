@@ -1,11 +1,18 @@
-import { Run } from "./types.js";
+import { Run } from "./types.ts";
 
+/**
+ * func argument type for func action.
+ */
 export interface func {
     name: string;
     children: Array<Run>;
     async: boolean;
 };
 
+/**
+ * Sets a function in global to be run another time.
+ * @param args Arguments for the action as a func type.
+ */
 export const func = (args: func) => {
     if (args.async) {
         (global as any)[args.name] = async function() {

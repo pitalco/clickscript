@@ -1,3 +1,6 @@
+/**
+ * Call argument type for call action.
+ */
 export interface Call {
     url: string;
     type: "GET" | "POST" | "PUT" | "DELETE";
@@ -5,6 +8,10 @@ export interface Call {
     headers: Headers;
 };
 
+/**
+ * Calls an API using fetch.
+ * @param args Arguments for the action as a Call type.
+ */
 export const call = (args: Call) => {
     switch (args.type) {
         case "GET":

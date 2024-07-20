@@ -5,6 +5,8 @@
     "target": "es2016",
     "sourceMap": true,
     "esModuleInterop": true,
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node"]
   },
   "include": [
     "packages/**/*" 
