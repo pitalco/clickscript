@@ -2,10 +2,6 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-pub trait Convert {
-    fn convert(&self) -> Result<String, Box<dyn std::error::Error>>;
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Action {
     pub index: i32,

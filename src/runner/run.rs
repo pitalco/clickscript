@@ -1,8 +1,7 @@
 use core::fmt;
-use std::{error::Error, fs, path::PathBuf};
+use std::{collections::HashMap, error::Error, fs, path::PathBuf};
 use log::{error, info};
-use rusty_v8 as v8;
-use serde_json::to_string;
+use serde_json::{to_string, Value};
 use crate::types::types::Script;
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
@@ -24,6 +23,38 @@ impl ClicksciptLog {
             message,
             level,
         }
+    }
+}
+
+struct ModuleLoader {
+    modules: HashMap<String, String>,
+}
+
+impl ModuleLoader {
+    fn new(modules: HashMap<String, String>) -> Self {
+        ModuleLoader { modules }
+    }
+
+    fn resolve_module<'s>(
+        &self,
+        specifier: &str,
+        referrer: v8::Local<v8::Module>,
+        context: v8::Local<'s, v8::Context>,
+    ) -> Option<v8::Local<'s, v8::Module>> {
+        let source = self.modules.get(specifier)?;
+        
+        let isolate = &mut v8::Isolate::new(Default::default());
+        let scope = &mut v8::HandleScope::new(isolate);
+        let source_map_url = v8::String::new(scope, "").unwrap().into();
+        let source_code = v8::String::new(scope, source).unwrap();
+        let origin = v8::ScriptOrigin::new(
+            scope,
+            v8::String::new(scope, specifier).unwrap().into(),
+            0, 0, false, -1, source_map_url, false, false, true
+        );
+
+        let source = v8::script_compiler::Source::new(source_code, Some(&origin));
+        v8::script_compiler::compile_module(scope, source).ok()
     }
 }
 
@@ -50,6 +81,31 @@ fn error_callback(scope: &mut v8::HandleScope, args: v8::FunctionCallbackArgumen
         logs.push(ClicksciptLog::new(info, "error".to_string()));
     }
     return;
+}
+
+async fn get_jsr_package(package: &str, version: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
+    let url = format!("https://jsr.io/{}/{}_meta.json", package, version);
+    let client = reqwest::Client::new();
+    let response = client.get(&url).send().await.unwrap();
+
+    if !response.status().is_success() {
+        return Err(format!("Error: {}", response.status()).into());
+    }
+
+    let body: Value = serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    let mut files = HashMap::new();
+
+    if let Some(file_list) = body.as_object() {
+        for file_path in file_list.get("manifest").unwrap().as_object().unwrap().keys() {
+            if file_path.contains(".ts") {
+                let url = format!("https://jsr.io/{}/{}/{}", package, version, file_path);
+                let file_content = client.get(url).send().await.unwrap().text().await.unwrap();
+                files.insert(file_path.clone(), file_content);
+            }
+        }
+    }
+
+    Ok(files)
 }
 
 pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
@@ -93,7 +149,7 @@ pub fn compile(script: &Script) -> Result<String, Box<dyn Error>> {
     Ok(code)
 }
 
-pub fn run(script: &Script) {
+pub async fn run(script: &Script) {
     env_logger::init();
 
     // Initialize V8
@@ -128,9 +184,24 @@ pub fn run(script: &Script) {
     let console_key = v8::String::new(scope, "console").unwrap();
     global.set(scope, console_key.into(), console.into()).unwrap();
 
+    // Get all the core action modules from JSR
+    let modules = get_jsr_package("@clickscript/actions", "0.0.2").await.unwrap();
+    let loader = ModuleLoader::new(modules);
+
     // Compile module
-    let raw_code = compile(script);
-    let code = format!("try {{console.log({:?});\n{:?}\n}} catch (error) {{\n\tconsole.error(error);\n}}", "Hello from JS", raw_code.unwrap());
+    let raw_code = compile(script).unwrap();
+    let code = format!(
+        r#"
+        import * as actions from '@clickscript/actions';
+        try {{
+            console.log("Hello from JS");
+            {}
+        }} catch (error) {{
+            console.error(error);
+        }}
+        "#,
+        raw_code
+    );
     let source_code = v8::String::new(scope, code.as_str()).unwrap();
     let resource_name = v8::String::new(scope, "clickscript_module").unwrap().into();
     let source_map_url = v8::String::new(scope, "").unwrap().into();
@@ -144,7 +215,9 @@ pub fn run(script: &Script) {
     let module = v8::script_compiler::compile_module(scope, source).unwrap();
 
     // Instantiate the module and evaluate it
-    module.instantiate_module(scope, |_, _, _, m| Some(m)).unwrap();
+    let result = module.instantiate_module(&mut scope, |specifier: v8::Local<v8::String>, referrer: v8::Local<v8::Module>, context| {
+        loader.resolve_module(specifier.to_rust_string_lossy(&mut scope).as_str(), referrer, context)
+    }).unwrap();
     module.evaluate(scope).unwrap();
     let logs = GLOBAL_LOGS.lock().unwrap();
     for log in logs.iter() {
@@ -163,6 +236,16 @@ mod tests {
     use super::*;
     use crate::types::types::{Action, Script};
     use serde_json::json;
+
+    #[test]
+    fn test_get_jsr_package() {
+        let package = "@clickscript/actions";
+        let version = "0.0.2";
+
+        let result = tokio_test::block_on(get_jsr_package(package, version));
+        println!("{:?}", result.as_ref().clone());
+        assert!(result.is_ok());
+    }
 
     #[test]
     fn test_compile() {
