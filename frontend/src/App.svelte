@@ -1,47 +1,80 @@
 <script lang="ts">
-  import logo from './assets/images/logo-universal.png'
-  import { Compile } from '../wailsjs/go/main/App.js'
+  import { onMount } from 'svelte';
+  import { Compile } from '../wailsjs/go/main/App.js';
 
-  async function compile(): Promise<void> {
-    await Compile()
+  let elements = [
+    { name: 'div', label: 'Div' },
+    { name: 'h2', label: 'Heading 2' },
+    { name: 'form', label: 'Form' },
+    { name: 'input', label: 'Input' },
+    { name: 'button', label: 'Button' }
+  ];
+
+  let canvasElements = [];
+
+  async function compile() {
+    await Compile();
   }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    const elementName = event.dataTransfer.getData('text');
+    canvasElements = [...canvasElements, { name: elementName }];
+    updateJsonFile();
+  }
+
+  function handleDragStart(event, elementName) {
+    event.dataTransfer.setData('text', elementName);
+  }
+
+  async function updateJsonFile() {
+    const response = await fetch('/path/to/example.click.json');
+    const json = await response.json();
+
+    json.components[0].template.push({
+      element: canvasElements[canvasElements.length - 1].name,
+      attributes: [],
+      children: []
+    });
+
+    await fetch('/path/to/example.click.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(json)
+    });
+  }
+
+  onMount(() => {
+    const canvas = document.getElementById('canvas');
+    canvas.addEventListener('dragover', (event) => event.preventDefault());
+    canvas.addEventListener('drop', handleDrop);
+  });
 </script>
 
-<main>
-  <img alt="Wails logo" id="logo" src="{logo}">
-  <div class="input-box" id="input">
-    <button class="btn" on:click={compile}>Compile</button>
-  </div>
+<main class="flex">
+  <aside class="w-1/4 p-4 bg-gray-100">
+    <h2 class="text-xl font-bold mb-4">Elements</h2>
+    <ul>
+      {#each elements as element}
+        <li
+          class="p-2 mb-2 bg-white border rounded cursor-pointer"
+          draggable="true"
+          on:dragstart={(event) => handleDragStart(event, element.name)}
+        >
+          {element.label}
+        </li>
+      {/each}
+    </ul>
+  </aside>
+
+  <section id="canvas" class="w-3/4 p-4 bg-gray-50 border-l">
+    <h2 class="text-xl font-bold mb-4">Canvas</h2>
+    {#each canvasElements as element}
+      <div class="p-2 mb-2 bg-white border rounded">
+        {element.name}
+      </div>
+    {/each}
+  </section>
 </main>
-
-<style>
-
-  #logo {
-    display: block;
-    width: 50%;
-    height: 50%;
-    margin: auto;
-    padding: 10% 0 0;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-origin: content-box;
-  }
-
-  .input-box .btn {
-    width: 60px;
-    height: 30px;
-    line-height: 30px;
-    border-radius: 3px;
-    border: none;
-    margin: 0 0 0 20px;
-    padding: 0 8px;
-    cursor: pointer;
-  }
-
-  .input-box .btn:hover {
-    background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-    color: #333333;
-  }
-
-</style>
