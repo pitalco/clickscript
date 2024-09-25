@@ -1,50 +1,36 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"path/filepath"
+	"embed"
 
-	"github.com/pitalco/clickscript/compiler"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
+//go:embed all:frontend/dist
+var assets embed.FS
+
 func main() {
-	c, err := compiler.NewCompiler("example.click.json")
+	// Create an instance of the app structure
+	app := NewApp()
+
+	// Create application with options
+	err := wails.Run(&options.App{
+		Title:  "Clickscript IDE",
+		Width:  1024,
+		Height: 768,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		OnStartup:        app.startup,
+		Bind: []interface{}{
+			app,
+		},
+	})
+
 	if err != nil {
-		log.Fatalf("Error creating compiler: %v", err)
-	}
-
-	components, err := c.CompileToWebComponents("./clickscript-starter")
-	if err != nil {
-		log.Fatalf("Error compiling to web components: %v", err)
-	}
-
-	// Set the root directory for the clickscript-starter project
-	rootDir := "./clickscript-starter"
-
-	// Create the main HTML file
-	mainHTML := c.GenerateIndexHTML(c.ComponentNames())
-	err = os.WriteFile(filepath.Join(rootDir, "index.html"), []byte(mainHTML), 0644)
-	if err != nil {
-		log.Fatalf("Error writing main HTML file: %v", err)
-	}
-	fmt.Println("Generated main HTML file: index.html")
-
-	for name, content := range components {
-		// Create the directory for the component
-		componentDir := filepath.Join(rootDir, "src", "components")
-		err := os.MkdirAll(componentDir, os.ModePerm)
-		if err != nil {
-			log.Fatalf("Error creating component directory %s: %v", componentDir, err)
-		}
-
-		// Write the component file
-		componentFile := filepath.Join(componentDir, name+".js")
-		err = os.WriteFile(componentFile, []byte(content), 0644)
-		if err != nil {
-			log.Fatalf("Error writing component file %s: %v", componentFile, err)
-		}
-		fmt.Printf("Generated Web Component: %s\n", componentFile)
+		println("Error:", err.Error())
 	}
 }
