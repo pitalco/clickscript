@@ -1,0 +1,39 @@
+{
+	"name": "clickscript",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"dev": "cd ./packages/frontend && yarn run dev",
+		"build": "npm run build --prefix packages/frontend && npm run build --prefix packages/actions",
+		"tauri": "tauri",
+		"check": "npm run check --prefix packages/frontend",
+		"check:watch": "npm run check:watch --prefix packages/frontend",
+		"test:unit": "npm run test:unit --prefix packages/frontend",
+		"lint": "npm run lint --prefix packages/frontend",
+		"format": "npm run format --prefix packages/frontend"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^1.0.6",
+		"@sveltejs/kit": "^1.5.0",
+		"@tauri-apps/api": "^1.3.0",
+		"@tauri-apps/cli": "^1.3.1",
+		"@types/node": "^20.14.11",
+		"prettier": "^2.8.0",
+		"prettier-plugin-svelte": "^2.8.1",
+		"svelte": "^3.54.0",
+		"svelte-check": "^3.0.1",
+		"tslib": "^2.4.1",
+		"typescript": "^5.0.0",
+		"vite": "^4.3.0",
+		"vitest": "^0.25.3"
+	},
+	"dependencies": {
+		"autoprefixer": "^10.4.14",
+		"preline": "^1.9.0",
+		"tailwindcss": "^3.3.2"
+	}
+}

@@ -1,0 +1,71 @@
+{
+  "components": [
+    {
+      "name": "app-home",
+      "props": [],
+      "template": [
+        {
+          "element": "div",
+          "attributes": [
+            {
+              "name": "class",
+              "value": "app-home"
+            }
+          ],
+          "children": [
+            {
+              "element": "p",
+              "content": "Welcome to the Stencil App Starter. You can use this starter to build entire apps all with web components using Stencil! Check out our docs on "
+            },
+            {
+              "element": "a",
+              "attributes": [
+                {
+                  "name": "href",
+                  "value": "https://stenciljs.com"
+                }
+              ],
+              "content": "stenciljs.com"
+            },
+            {
+              "element": "p",
+              "content": " to get started."
+            },
+            {
+              "element": "stencil-route-link",
+              "attributes": [
+                {
+                  "name": "url",
+                  "value": "/profile/stencil"
+                }
+              ],
+              "children": [
+                {
+                  "element": "button",
+                  "content": "Profile page"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "script": []
+    }
+  ],
+  "server": [
+    {
+      "action": "log",
+      "args": {
+        "message": "Server started successfully",
+        "level": "info"
+      }
+    },
+    {
+      "action": "log",
+      "args": {
+        "message": "Listening on port 3000",
+        "level": "info"
+      }
+    }
+  ]
+}
