@@ -4,7 +4,7 @@ First came Javascript, then NodeJS and then Typescript. Next comes Clickscript. 
 
 Build your own apps, automate your work and create your own APIs with our visual programming IDE. Fullstack, frontend, backend, database, anything. Its all Javascript!
 
-## Installation 
+## Installation
 
 You can install the Clickscript Visual IDE from [here](https://github.com/pitalco/clickscript/releases/latest).
 

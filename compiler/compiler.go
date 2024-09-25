@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -57,56 +58,96 @@ func NewCompiler(jsonFilePath string) (*Compiler, error) {
 	return &Compiler{Components: compilerData.Components}, nil
 }
 
-func (c *Compiler) CompileToStencil() map[string]string {
+func (c *Compiler) CompileToWebComponents(outputDir string) (map[string]string, error) {
 	components := make(map[string]string)
 
 	for _, component := range c.Components {
-		components[component.Name] = c.generateStencilComponent(component)
+		if _, exists := components[component.Name]; !exists {
+			componentCode := c.generateWebComponent(component)
+			components[component.Name] = componentCode
+
+			// Write each component to a separate file
+			fileName := filepath.Join(outputDir, "src", "components", component.Name+".js")
+			err := os.MkdirAll(filepath.Dir(fileName), os.ModePerm)
+			if err != nil {
+				return nil, fmt.Errorf("error creating directory for component %s: %v", component.Name, err)
+			}
+			err = os.WriteFile(fileName, []byte(componentCode), 0644)
+			if err != nil {
+				return nil, fmt.Errorf("error writing component file %s: %v", fileName, err)
+			}
+		}
 	}
 
-	return components
+	// Generate and write index.html
+	indexHTML := c.GenerateIndexHTML(c.ComponentNames())
+	fmt.Println("Generated index.html content:\n", indexHTML) // Debugging statement
+	indexFileName := filepath.Join(outputDir, "index.html")
+	err := os.WriteFile(indexFileName, []byte(indexHTML), 0644)
+	if err != nil {
+		return nil, fmt.Errorf("error writing index.html: %v", err)
+	}
+
+	return components, nil
 }
 
-func (c *Compiler) generateStencilComponent(component Component) string {
+func (c *Compiler) generateWebComponent(component Component) string {
 	var sb strings.Builder
 
-	// Import statements
-	sb.WriteString("import { Component, Prop, h } from '@stencil/core';\n\n")
+	// Class definition
+	sb.WriteString("class " + toPascalCase(component.Name) + " extends HTMLElement {\n")
 
-	// Component decorator
-	sb.WriteString("@Component({\n")
-	sb.WriteString("  tag: '" + component.Name + "',\n")
-	sb.WriteString("  styleUrl: '" + component.Name + ".css',\n")
-	sb.WriteString("  shadow: true,\n")
-	sb.WriteString("})\n")
+	// Constructor
+	sb.WriteString("  constructor() {\n")
+	sb.WriteString("    super();\n")
+	sb.WriteString("    this.attachShadow({ mode: 'open' });\n")
+	sb.WriteString("  }\n\n")
 
-	// Component class
-	sb.WriteString("export class " + toPascalCase(component.Name) + " {\n")
+	// Observed attributes
+	sb.WriteString("  static get observedAttributes() {\n")
+	sb.WriteString("    return [" + c.generateObservedAttributes(component.Props) + "];\n")
+	sb.WriteString("  }\n\n")
 
-	// Props
-	for _, prop := range component.Props {
-		sb.WriteString("  @Prop() " + prop.Name + ": " + prop.Type + ";\n")
-	}
-	sb.WriteString("\n")
+	// Lifecycle methods
+	sb.WriteString("  connectedCallback() {\n")
+	sb.WriteString("    this.render();\n")
+	sb.WriteString(c.generateScriptActions(component.Script))
+	sb.WriteString("  }\n\n")
 
-	// Lifecycle method
-	if len(component.Script) > 0 {
-		sb.WriteString("  componentDidLoad() {\n")
-		for _, action := range component.Script {
-			sb.WriteString("    console." + action.Action + "(" + formatArgs(action.Args) + ");\n")
-		}
-		sb.WriteString("  }\n\n")
-	}
+	sb.WriteString("  attributeChangedCallback(name, oldValue, newValue) {\n")
+	sb.WriteString("    this.render();\n")
+	sb.WriteString("  }\n\n")
 
 	// Render method
 	sb.WriteString("  render() {\n")
-	sb.WriteString("    return (\n")
+	sb.WriteString("    this.shadowRoot.innerHTML = `\n")
+	sb.WriteString("      <link href=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.css\" rel=\"stylesheet\">\n")
 	sb.WriteString(c.renderTemplate(component.Template, 6))
-	sb.WriteString("    );\n")
+	sb.WriteString("      <script src=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js\"></script>\n")
+	sb.WriteString("    `;\n")
 	sb.WriteString("  }\n")
 
-	sb.WriteString("}\n")
+	sb.WriteString("}\n\n")
 
+	// Custom element definition
+	sb.WriteString("customElements.define('" + component.Name + "', " + toPascalCase(component.Name) + ");\n")
+
+	return sb.String()
+}
+
+func (c *Compiler) generateObservedAttributes(props []Prop) string {
+	attributes := make([]string, len(props))
+	for i, prop := range props {
+		attributes[i] = "'" + prop.Name + "'"
+	}
+	return strings.Join(attributes, ", ")
+}
+
+func (c *Compiler) generateScriptActions(actions []ScriptAction) string {
+	var sb strings.Builder
+	for _, action := range actions {
+		sb.WriteString("    console." + action.Action + "(" + formatArgs(action.Args) + ");\n")
+	}
 	return sb.String()
 }
 
@@ -173,4 +214,45 @@ func formatArgs(args map[string]interface{}) string {
 		}
 	}
 	return strings.Join(formattedArgs, ", ")
+}
+
+func (c *Compiler) GenerateIndexHTML(componentNames []string) string {
+	var sb strings.Builder
+
+	sb.WriteString("<!DOCTYPE html>\n")
+	sb.WriteString("<html lang=\"en\">\n")
+	sb.WriteString("<head>\n")
+	sb.WriteString("    <meta charset=\"UTF-8\">\n")
+	sb.WriteString("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+	sb.WriteString("    <title>Clickscript App</title>\n")
+	sb.WriteString("    <link href=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.css\" rel=\"stylesheet\" />\n")
+
+	// Add script tags for components
+	for _, name := range componentNames {
+		sb.WriteString(fmt.Sprintf("    <script src=\"src/components/%s.js\" type=\"module\"></script>\n", name))
+	}
+
+	sb.WriteString("</head>\n")
+	sb.WriteString("<body>\n")
+
+	// Add component tags
+	for _, name := range componentNames {
+		sb.WriteString(fmt.Sprintf("    <%s></%s>\n", name, name))
+	}
+
+	// Add Flowbite script
+	sb.WriteString("    <script src=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js\"></script>\n")
+
+	sb.WriteString("</body>\n")
+	sb.WriteString("</html>\n")
+
+	return sb.String()
+}
+
+func (c *Compiler) ComponentNames() []string {
+	names := make([]string, len(c.Components))
+	for i, comp := range c.Components {
+		names[i] = comp.Name
+	}
+	return names
 }

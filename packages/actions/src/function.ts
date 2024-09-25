@@ -15,14 +15,14 @@ export interface func {
  */
 export const func = (args: func): (args: func) => void => {
     if (args.async) {
-        (global as any)[args.name] = async function() {
+        (globalThis as any)[args.name] = async function() {
             for (let i = 0; i < args.children.length; i++) {
                 await args.children[i].func(args.children[i].args);
             }
         }
     }
     return function(args: func) {
-        (global as any)[args.name] = function() {
+        (globalThis as any)[args.name] = function() {
             for (let i = 0; i < args.children.length; i++) {
                 args.children[i].func(args.children[i].args);
             }
