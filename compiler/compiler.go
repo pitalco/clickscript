@@ -233,15 +233,35 @@ func (c *Compiler) GenerateIndexHTML(componentNames []string) string {
 
 	sb.WriteString("</head>\n")
 	sb.WriteString("<body>\n")
-
-	// Add component tags
+	sb.WriteString("    <div id=\"app\"></div>\n")
+	sb.WriteString("    <script>\n")
+	sb.WriteString("        const routes = {\n")
 	for _, name := range componentNames {
-		sb.WriteString(fmt.Sprintf("    <%s></%s>\n", name, name))
+		sb.WriteString(fmt.Sprintf("            '%s': '%s',\n", name, name))
 	}
+	sb.WriteString("            '': '" + componentNames[0] + "',\n") // Default route
+	sb.WriteString("        };\n")
+	sb.WriteString("        function router() {\n")
+	sb.WriteString("            let path = window.location.pathname || '/';\n")
+	sb.WriteString("            console.log('Original path:', path); // Debugging statement\n")
 
-	// Add Flowbite script
+	sb.WriteString("            // Extract the last part of the path\n")
+	sb.WriteString("            const pathParts = path.split('/');\n")
+	sb.WriteString("            const lastPart = pathParts[pathParts.length - 1] || '';\n")
+	sb.WriteString("            console.log('Processed path:', lastPart); // Debugging statement\n")
+
+	sb.WriteString("            const component = routes[lastPart];\n")
+	sb.WriteString("            if (component) {\n")
+	sb.WriteString("                console.log('Loading component:', component); // Debugging statement\n")
+	sb.WriteString("                document.getElementById('app').innerHTML = `<${component}></${component}>`;\n")
+	sb.WriteString("            } else {\n")
+	sb.WriteString("                console.error('Component not found for path:', lastPart);\n")
+	sb.WriteString("            }\n")
+	sb.WriteString("        }\n")
+	sb.WriteString("        window.addEventListener('popstate', router);\n")
+	sb.WriteString("        window.addEventListener('load', router);\n")
+	sb.WriteString("    </script>\n")
 	sb.WriteString("    <script src=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js\"></script>\n")
-
 	sb.WriteString("</body>\n")
 	sb.WriteString("</html>\n")
 
