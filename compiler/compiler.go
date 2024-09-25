@@ -81,7 +81,6 @@ func (c *Compiler) CompileToWebComponents(outputDir string) (map[string]string, 
 
 	// Generate and write index.html
 	indexHTML := c.GenerateIndexHTML(c.ComponentNames())
-	fmt.Println("Generated index.html content:\n", indexHTML) // Debugging statement
 	indexFileName := filepath.Join(outputDir, "index.html")
 	err := os.WriteFile(indexFileName, []byte(indexHTML), 0644)
 	if err != nil {
