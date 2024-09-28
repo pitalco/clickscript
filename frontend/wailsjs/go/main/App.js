@@ -5,3 +5,7 @@
 export function Compile() {
   return window['go']['main']['App']['Compile']();
 }
+
+export function RenderHTML() {
+  return window['go']['main']['App']['RenderHTML']();
+}

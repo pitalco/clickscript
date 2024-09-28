@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"clickscript/compiler"
 )
@@ -47,4 +49,38 @@ func Run() {
 		}
 		fmt.Printf("Generated Web Component: %s\n", componentFile)
 	}
+}
+
+func RenderHTML() (string, error) {
+	c, err := compiler.NewCompiler("example.click.json")
+	if err != nil {
+		return "", fmt.Errorf("error creating compiler: %v", err)
+	}
+
+	components, err := c.CompileToWebComponents("./clickscript-starter")
+	if err != nil {
+		return "", fmt.Errorf("error compiling to web components: %v", err)
+	}
+
+	// Generate the main HTML content
+	mainHTML := c.GenerateIndexHTML(c.ComponentNames())
+
+	// Create a buffer to store the final HTML string
+	var buffer bytes.Buffer
+
+	// Write the main HTML content
+	buffer.WriteString(mainHTML)
+
+	// Insert the compiled components as inline scripts
+	for _, content := range components {
+		scriptTag := fmt.Sprintf("<script type=\"module\">\n%s\n</script>\n", content)
+		buffer.WriteString(scriptTag)
+	}
+
+	// Replace the individual script tags with the inline scripts
+	finalHTML := strings.Replace(buffer.String(),
+		`<script src="src/components/app-home.js" type="module"></script>`,
+		buffer.String(), 1)
+
+	return finalHTML, nil
 }

@@ -24,3 +24,11 @@ func (a *App) startup(ctx context.Context) {
 func (a *App) Compile() {
 	Run()
 }
+
+func (a *App) RenderHTML() string {
+	html, err := RenderHTML()
+	if err != nil {
+		panic(err)
+	}
+	return html
+}
