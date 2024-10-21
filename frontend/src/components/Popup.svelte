@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
 	import interact from 'interactjs';
+	import Dropdown from './Dropdown.svelte';
 
 	export let isOpen: boolean = false;
 
@@ -86,13 +87,15 @@
 			</div>
 			<!-- Modal body -->
 			<div class="p-4 md:p-5 space-y-4 draggable-area">
-				<div>
-					<label for="input1" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Input 1</label>
-					<input type="text" id="input1" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Enter text here">
+				<div class="flex items-center">
+					<label for="input1" class="w-1/3 text-sm font-medium text-gray-900 dark:text-white">Input 1</label>
+					<input type="text" id="input1" class="w-2/3 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Enter text here">
 				</div>
-				<div>
-					<label for="input2" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Input 2</label>
-					<input type="text" id="input2" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Enter text here">
+				<div class="flex items-center">
+					<label for="input2" class="w-1/3 text-sm font-medium text-gray-900 dark:text-white">Input 2</label>
+					<div class="w-2/3">
+						<Dropdown />
+					</div>
 				</div>
 			</div>
 			<!-- Modal footer -->
@@ -123,5 +126,15 @@
 	}
 	input, h3 {
 		text-align: left;
+	}
+
+	/* Add these styles to prevent scrolling within the popup */
+	:global(body) {
+		overflow: hidden;
+	}
+
+	/* Ensure the popup container allows overflow for the dropdown */
+	div[id="static-modal"] > div {
+		overflow: visible !important;
 	}
 </style>
