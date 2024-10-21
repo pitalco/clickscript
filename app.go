@@ -1,7 +1,9 @@
 package main
 
 import (
+	"clickscript/compiler"
 	"context"
+	"log"
 )
 
 // App struct
@@ -22,13 +24,9 @@ func (a *App) startup(ctx context.Context) {
 
 // Greet returns a greeting for the given name
 func (a *App) Compile() {
-	Run()
-}
-
-func (a *App) RenderHTML() string {
-	html, err := RenderHTML()
+	c, err := compiler.NewCompiler("example.click.json")
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error creating compiler: %v", err)
 	}
-	return html
+	c.Compile("./output")
 }

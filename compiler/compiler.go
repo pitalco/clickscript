@@ -8,37 +8,23 @@ import (
 	"strings"
 )
 
-type Prop struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+type Arg struct {
+	Type  string      `json:"type"`
+	Value interface{} `json:"value"`
 }
 
-type Attribute struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
+type Action struct {
+	Action string `json:"action"`
+	Args   []Arg  `json:"args"`
 }
 
-type Element struct {
-	Element    string      `json:"element"`
-	Attributes []Attribute `json:"attributes,omitempty"`
-	Content    string      `json:"content,omitempty"`
-	Children   []Element   `json:"children,omitempty"`
-}
-
-type ScriptAction struct {
-	Action string                 `json:"action"`
-	Args   map[string]interface{} `json:"args"`
-}
-
-type Component struct {
-	Name     string         `json:"name"`
-	Props    []Prop         `json:"props,omitempty"`
-	Template []Element      `json:"template"`
-	Script   []ScriptAction `json:"script,omitempty"`
+type ClickscriptData struct {
+	Client []Action `json:"client"`
+	Server []Action `json:"server"`
 }
 
 type Compiler struct {
-	Components []Component
+	Data ClickscriptData
 }
 
 func NewCompiler(jsonFilePath string) (*Compiler, error) {
@@ -47,231 +33,102 @@ func NewCompiler(jsonFilePath string) (*Compiler, error) {
 		return nil, fmt.Errorf("error reading JSON file: %v", err)
 	}
 
-	var compilerData struct {
-		Components []Component `json:"components"`
-	}
-	err = json.Unmarshal(data, &compilerData)
+	var clickscriptData ClickscriptData
+	err = json.Unmarshal(data, &clickscriptData)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
 	}
 
-	return &Compiler{Components: compilerData.Components}, nil
+	return &Compiler{Data: clickscriptData}, nil
 }
 
-func (c *Compiler) CompileToWebComponents(outputDir string) (map[string]string, error) {
-	components := make(map[string]string)
-
-	for _, component := range c.Components {
-		if _, exists := components[component.Name]; !exists {
-			componentCode := c.generateWebComponent(component)
-			components[component.Name] = componentCode
-
-			// Write each component to a separate file
-			fileName := filepath.Join(outputDir, "src", "components", component.Name+".js")
-			err := os.MkdirAll(filepath.Dir(fileName), os.ModePerm)
-			if err != nil {
-				return nil, fmt.Errorf("error creating directory for component %s: %v", component.Name, err)
-			}
-			err = os.WriteFile(fileName, []byte(componentCode), 0644)
-			if err != nil {
-				return nil, fmt.Errorf("error writing component file %s: %v", fileName, err)
-			}
-		}
-	}
-
-	// Generate and write index.html
-	indexHTML := c.GenerateIndexHTML(c.ComponentNames())
-	indexFileName := filepath.Join(outputDir, "index.html")
-	err := os.WriteFile(indexFileName, []byte(indexHTML), 0644)
+func (c *Compiler) Compile(outputDir string) error {
+	err := c.compileServer(outputDir)
 	if err != nil {
-		return nil, fmt.Errorf("error writing index.html: %v", err)
+		return err
 	}
 
-	return components, nil
+	return nil
 }
 
-func (c *Compiler) generateWebComponent(component Component) string {
-	var sb strings.Builder
-
-	// Class definition
-	sb.WriteString("class " + toPascalCase(component.Name) + " extends HTMLElement {\n")
-
-	// Constructor
-	sb.WriteString("  constructor() {\n")
-	sb.WriteString("    super();\n")
-	sb.WriteString("    this.attachShadow({ mode: 'open' });\n")
-	sb.WriteString("  }\n\n")
-
-	// Observed attributes
-	sb.WriteString("  static get observedAttributes() {\n")
-	sb.WriteString("    return [" + c.generateObservedAttributes(component.Props) + "];\n")
-	sb.WriteString("  }\n\n")
-
-	// Lifecycle methods
-	sb.WriteString("  connectedCallback() {\n")
-	sb.WriteString("    this.render();\n")
-	sb.WriteString(c.generateScriptActions(component.Script))
-	sb.WriteString("  }\n\n")
-
-	sb.WriteString("  attributeChangedCallback(name, oldValue, newValue) {\n")
-	sb.WriteString("    this.render();\n")
-	sb.WriteString("  }\n\n")
-
-	// Render method
-	sb.WriteString("  render() {\n")
-	sb.WriteString("    this.shadowRoot.innerHTML = `\n")
-	sb.WriteString("      <link href=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.css\" rel=\"stylesheet\">\n")
-	sb.WriteString(c.renderTemplate(component.Template, 6))
-	sb.WriteString("      <script src=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js\"></script>\n")
-	sb.WriteString("    `;\n")
-	sb.WriteString("  }\n")
-
-	sb.WriteString("}\n\n")
-
-	// Custom element definition
-	sb.WriteString("customElements.define('" + component.Name + "', " + toPascalCase(component.Name) + ");\n")
-
-	return sb.String()
-}
-
-func (c *Compiler) generateObservedAttributes(props []Prop) string {
-	attributes := make([]string, len(props))
-	for i, prop := range props {
-		attributes[i] = "'" + prop.Name + "'"
+func (c *Compiler) compileServer(outputDir string) error {
+	serverCode := c.generateCode(c.Data.Server)
+	serverFilePath := filepath.Join(outputDir, "server.js")
+	err := os.WriteFile(serverFilePath, []byte(serverCode), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing server file: %v", err)
 	}
-	return strings.Join(attributes, ", ")
+	return nil
 }
 
-func (c *Compiler) generateScriptActions(actions []ScriptAction) string {
+func (c *Compiler) generateCode(actions []Action) string {
 	var sb strings.Builder
+
 	for _, action := range actions {
-		sb.WriteString("    console." + action.Action + "(" + formatArgs(action.Args) + ");\n")
+		sb.WriteString(fmt.Sprintf("import { %s } from '@clickscript/actions';\n\n", action.Action))
 	}
-	return sb.String()
-}
 
-func (c *Compiler) renderTemplate(elements []Element, indent int) string {
-	var sb strings.Builder
-
-	for _, element := range elements {
-		sb.WriteString(c.renderElement(element, indent))
+	for _, action := range actions {
+		sb.WriteString(c.generateAction(action))
+		sb.WriteString("\n")
 	}
 
 	return sb.String()
 }
 
-func (c *Compiler) renderElement(element Element, indent int) string {
-	var sb strings.Builder
+func (c *Compiler) generateAction(action Action) string {
+	actionCode := fmt.Sprintf("%s(%s);\n", action.Action, c.generateArgs(action.Args))
+	return actionCode
+}
 
-	indentStr := strings.Repeat(" ", indent)
-	sb.WriteString(indentStr)
-
-	sb.WriteString("<" + element.Element)
-
-	for _, attr := range element.Attributes {
-		sb.WriteString(" " + attr.Name + "=\"" + attr.Value + "\"")
+func (c *Compiler) generateArgs(args []Arg) string {
+	argStrings := make([]string, len(args))
+	for i, arg := range args {
+		argStrings[i] = arg.toTypes()
 	}
+	return strings.Join(argStrings, ", ")
+}
 
-	if len(element.Children) == 0 && element.Content == "" {
-		sb.WriteString(" />\n")
-	} else {
-		sb.WriteString(">\n")
-		if element.Content != "" {
-			sb.WriteString(indentStr + "  " + element.Content + "\n")
+func (a *Arg) toTypes() string {
+	switch a.Type {
+	case "text":
+		return fmt.Sprintf("'%s'", a.Value)
+	case "number":
+		return fmt.Sprintf("%v", a.Value)
+	case "boolean":
+		return fmt.Sprintf("%t", a.Value)
+	case "array":
+		values := a.Value.([]interface{})
+		arrayStrings := make([]string, len(values))
+		for i, v := range values {
+			arrayStrings[i] = (&Arg{Type: getType(v), Value: v}).toTypes()
 		}
-		for _, child := range element.Children {
-			sb.WriteString(c.renderElement(child, indent+2))
+		return fmt.Sprintf("[%s]", strings.Join(arrayStrings, ", "))
+	case "object":
+		obj := a.Value.(map[string]interface{})
+		pairs := make([]string, 0, len(obj))
+		for k, v := range obj {
+			pairs = append(pairs, fmt.Sprintf("%s: %s", k, (&Arg{Type: getType(v), Value: v}).toTypes()))
 		}
-		sb.WriteString(indentStr + "</" + element.Element + ">\n")
+		return fmt.Sprintf("{ %s }", strings.Join(pairs, ", "))
+	default:
+		return fmt.Sprintf("%v", a.Value)
 	}
-
-	return sb.String()
 }
 
-func toPascalCase(s string) string {
-	parts := strings.Split(s, "-")
-	for i, part := range parts {
-		parts[i] = strings.Title(part)
+func getType(v interface{}) string {
+	switch v.(type) {
+	case string:
+		return "text"
+	case float64, int:
+		return "number"
+	case bool:
+		return "boolean"
+	case []interface{}:
+		return "array"
+	case map[string]interface{}:
+		return "object"
+	default:
+		return "unknown"
 	}
-	return strings.Join(parts, "")
-}
-
-func formatArgs(args map[string]interface{}) string {
-	var formattedArgs []string
-	for key, value := range args {
-		switch v := value.(type) {
-		case string:
-			formattedArgs = append(formattedArgs, fmt.Sprintf("%s: '%s'", key, v))
-		case []interface{}:
-			strValues := make([]string, len(v))
-			for i, item := range v {
-				strValues[i] = fmt.Sprintf("'%v'", item)
-			}
-			formattedArgs = append(formattedArgs, fmt.Sprintf("%s: [%s]", key, strings.Join(strValues, ", ")))
-		default:
-			formattedArgs = append(formattedArgs, fmt.Sprintf("%s: %v", key, v))
-		}
-	}
-	return strings.Join(formattedArgs, ", ")
-}
-
-func (c *Compiler) GenerateIndexHTML(componentNames []string) string {
-	var sb strings.Builder
-
-	sb.WriteString("<!DOCTYPE html>\n")
-	sb.WriteString("<html lang=\"en\">\n")
-	sb.WriteString("<head>\n")
-	sb.WriteString("    <meta charset=\"UTF-8\">\n")
-	sb.WriteString("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
-	sb.WriteString("    <title>Clickscript App</title>\n")
-	sb.WriteString("    <link href=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.css\" rel=\"stylesheet\" />\n")
-
-	// Add script tags for components
-	for _, name := range componentNames {
-		sb.WriteString(fmt.Sprintf("    <script src=\"src/components/%s.js\" type=\"module\"></script>\n", name))
-	}
-
-	sb.WriteString("</head>\n")
-	sb.WriteString("<body>\n")
-	sb.WriteString("    <div id=\"app\"></div>\n")
-	sb.WriteString("    <script>\n")
-	sb.WriteString("        const routes = {\n")
-	for _, name := range componentNames {
-		sb.WriteString(fmt.Sprintf("            '%s': '%s',\n", name, name))
-	}
-	sb.WriteString("            '': '" + componentNames[0] + "',\n") // Default route
-	sb.WriteString("        };\n")
-	sb.WriteString("        function router() {\n")
-	sb.WriteString("            let path = window.location.pathname || '/';\n")
-	sb.WriteString("            console.log('Original path:', path); // Debugging statement\n")
-
-	sb.WriteString("            // Extract the last part of the path\n")
-	sb.WriteString("            const pathParts = path.split('/');\n")
-	sb.WriteString("            const lastPart = pathParts[pathParts.length - 1] || '';\n")
-	sb.WriteString("            console.log('Processed path:', lastPart); // Debugging statement\n")
-
-	sb.WriteString("            const component = routes[lastPart];\n")
-	sb.WriteString("            if (component) {\n")
-	sb.WriteString("                console.log('Loading component:', component); // Debugging statement\n")
-	sb.WriteString("                document.getElementById('app').innerHTML = `<${component}></${component}>`;\n")
-	sb.WriteString("            } else {\n")
-	sb.WriteString("                console.error('Component not found for path:', lastPart);\n")
-	sb.WriteString("            }\n")
-	sb.WriteString("        }\n")
-	sb.WriteString("        window.addEventListener('popstate', router);\n")
-	sb.WriteString("        window.addEventListener('load', router);\n")
-	sb.WriteString("    </script>\n")
-	sb.WriteString("    <script src=\"https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js\"></script>\n")
-	sb.WriteString("</body>\n")
-	sb.WriteString("</html>\n")
-
-	return sb.String()
-}
-
-func (c *Compiler) ComponentNames() []string {
-	names := make([]string, len(c.Components))
-	for i, comp := range c.Components {
-		names[i] = comp.Name
-	}
-	return names
 }

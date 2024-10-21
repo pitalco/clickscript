@@ -2,7 +2,7 @@
  * Log argument type for log action.
  */
 export interface Log {
-    message: string[];
+    message: any[];
     level: "info" | "warn" | "error";
 };
 
