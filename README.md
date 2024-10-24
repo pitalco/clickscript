@@ -1,8 +1,8 @@
 # Clickscript
 
-First came Javascript, then NodeJS and then Typescript. Next comes Clickscript. The first Javascript visual programming language. Program in Javascript without writing a line of code.
+Clickscript is an open-source visual programming language with a built in database that's packaged in a spreadsheet like interface. Build re-occuring functions, serverless APIs, data apps and more without code.
 
-Build your own apps, automate your work and create your own APIs with our visual programming IDE. Fullstack, frontend, backend, database, anything. Its all Javascript!
+Clickscript compiles directly to Javascript allowing you to package your code and share it with coders and no-coders alike.
 
 ## Installation
 
@@ -22,4 +22,4 @@ The Clickscript IDE is licensed under the MIT license. See the [LICENSE](LICENSE
 
 ## One Click Hosting
 
-Coming soon.
+Host your reoccuring functions, APIs and data apps with one click, all serverless.
